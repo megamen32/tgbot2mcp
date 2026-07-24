@@ -4,14 +4,13 @@ services:
     env_file:
       - .env
     volumes:
-      # Persist Telegram session across container restarts
-      - tgbot2mcp_sessions:/root/.tgbot2mcp/sessions
-      # Optional: mount config file
-      # - ./config.yaml:/root/.tgbot2mcp/config.yaml:ro
-    # For interactive login, use: docker compose run tgbot2mcp login
-    # For serving: docker compose run tgbot2mcp serve @SomeBot
+      - tgbot2mcp-data:/data
+    ports:
+      - "8080:8080"
     stdin_open: true
     tty: true
+    # Login:  docker compose run tgbot2mcp login
+    # Serve:  docker compose run tgbot2mcp serve @SomeBot --transport http --host 0.0.0.0 --port 8080
 
 volumes:
-  tgbot2mcp_sessions:
+  tgbot2mcp-data:

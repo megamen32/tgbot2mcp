@@ -2,25 +2,16 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+COPY pyproject.toml README.md ./
+COPY src ./src
 
-# Copy and install Python dependencies
-COPY pyproject.toml .
 RUN pip install --no-cache-dir .
 
-# Copy source code
-COPY src/ src/
-COPY README.md .
+RUN mkdir -p /data/sessions
 
-# Install the package
-RUN pip install --no-cache-dir .
+ENV TGBOT2MCP_HOME=/data
 
-# Create session directory
-RUN mkdir -p /root/.tgbot2mcp/sessions
+VOLUME ["/data"]
 
-# Default entrypoint
 ENTRYPOINT ["tgbot2mcp"]
 CMD ["--help"]

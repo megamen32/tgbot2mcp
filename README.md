@@ -8,24 +8,92 @@
   <a href="#zh">中文</a>
 </p>
 
+<p align="center">
+  <a href="https://pypi.org/project/tgbot2mcp/"><img alt="PyPI" src="https://img.shields.io/pypi/v/tgbot2mcp?color=blue"/></a>
+  <a href="https://github.com/megamen32/tgbot2mcp"><img alt="GitHub" src="https://img.shields.io/github/stars/megamen32/tgbot2mcp?style=social"/></a>
+  <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-blue"/>
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green"/>
+</p>
+
 ---
 
-# tgbot2mcp — Telegram Bot to MCP Server Adapter
+# tgbot2mcp
 
-**Turn any Telegram bot into a ready-to-use [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server.** No bot token required. Works with any existing Telegram bot through your user account.
+**Turn any Telegram bot into a ready-to-use [MCP server](https://modelcontextprotocol.io/) in one command.**  
+No bot token required. Works with any existing Telegram bot through your user account.
 
-> **What is tgbot2mcp?** It is an open-source Python adapter that connects to Telegram as a user (via MTProto/Telethon), auto-discovers a target bot's capabilities using depth-first search, and exposes them as MCP tools — so AI agents like Claude, ChatGPT, and Gemini can interact with any Telegram bot programmatically.
+> **What is this?** An open-source Python adapter that connects to Telegram as a user (via MTProto), auto-discovers a target bot's capabilities, and exposes them as MCP tools — so AI agents (Claude, GPT, Gemini) can interact with any Telegram bot.
 
 ---
 
-## What Problem Does This Solve?
+## Quick Start
 
-Telegram bots are everywhere — customer support, order tracking, payments, internal tools — but AI agents cannot interact with them directly. **tgbot2mcp** bridges this gap:
+One command to set everything up:
 
-- **Before:** AI agents have no way to use Telegram bots
-- **After:** Any Telegram bot becomes a set of MCP tools that AI agents can call
+```bash
+uvx tgbot2mcp setup @SomeBot
+```
 
-No API keys from the bot owner. No cooperation from the bot developer. Just point it at `@AnyBot` and go.
+This will:
+1. Ask for your Telegram API credentials (from [my.telegram.org/apps](https://my.telegram.org/apps))
+2. Log in to Telegram
+3. Verify the bot is reachable
+4. Auto-configure your MCP client (Claude Desktop / Cursor / VS Code)
+
+**Done.** Your AI agent can now talk to the bot.
+
+---
+
+## Installation
+
+<details open>
+<summary><b>uvx (recommended — no install needed)</b></summary>
+
+```bash
+uvx tgbot2mcp setup @SomeBot
+uvx tgbot2mcp serve @SomeBot
+```
+
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
+
+</details>
+
+<details>
+<summary><b>pipx (permanent install)</b></summary>
+
+```bash
+pipx install tgbot2mcp
+tgbot2mcp setup @SomeBot
+```
+
+</details>
+
+<details>
+<summary><b>Docker (HTTP/self-hosted)</b></summary>
+
+```bash
+docker run --rm -it \
+  -p 8080:8080 \
+  -v tgbot2mcp-data:/data \
+  -e TG_API_ID=123456 \
+  -e TG_API_HASH=... \
+  ghcr.io/megamen32/tgbot2mcp \
+  serve @SomeBot --transport http --host 0.0.0.0 --port 8080
+```
+
+</details>
+
+<details>
+<summary><b>From source (development)</b></summary>
+
+```bash
+git clone https://github.com/megamen32/tgbot2mcp.git
+cd tgbot2mcp
+pip install -e ".[dev]"
+tgbot2mcp setup @SomeBot
+```
+
+</details>
 
 ---
 
@@ -41,134 +109,43 @@ No API keys from the bot owner. No cooperation from the bot developer. Just poin
                                    └─────────────┘
 ```
 
-1. **Authenticate** — Log in with your Telegram account (phone number, like a normal client)
-2. **Discover** — tgbot2mcp crawls the bot: `/start`, `/help`, buttons, inline keyboards, full state graph via DFS
-3. **Expose** — Every discovered action becomes an MCP tool the AI can call
-4. **Interact** — AI agents send messages, click buttons, navigate bot states — all through MCP
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.11+
-- Telegram API credentials from [my.telegram.org/apps](https://my.telegram.org/apps)
-
-### Install
-
-```bash
-pip install -e .
-```
-
-### Login
-
-```bash
-tgbot2mcp login
-```
-
-Authenticates interactively (phone → code → 2FA if enabled). Session saved to `~/.tgbot2mcp/sessions/`.
-
-### Inspect a Bot
-
-```bash
-tgbot2mcp inspect @SomeBot
-```
-
-Runs discovery and prints all commands, buttons, and states found.
-
-### Start MCP Server
-
-```bash
-# stdio transport (Claude Desktop, etc.)
-tgbot2mcp serve @SomeBot
-
-# HTTP transport
-tgbot2mcp serve @SomeBot --transport http --port 8080
-
-# Skip discovery (universal tools only)
-tgbot2mcp serve @SomeBot --no-discover
-```
-
-### Generate Standalone Server
-
-```bash
-tgbot2mcp generate @SomeBot --output ./generated
-```
-
-Creates a self-contained Python MCP server with discovered commands hardcoded as dedicated tools.
+1. **Authenticate** — Log in with your Telegram account (phone number)
+2. **Discover** — Crawl the bot: `/start`, `/help`, buttons, full state graph via DFS
+3. **Expose** — Every action becomes an MCP tool
+4. **Interact** — AI agents send messages, click buttons, navigate states
 
 ---
 
 ## MCP Tools
 
-### Universal Tools
-
-Available for any bot, no discovery needed:
+### Universal (always available)
 
 | Tool | What it does |
 |------|-------------|
-| `send` | Send text (or `/command`) and get the response |
+| `send` | Send text or `/command` and get the response |
 | `click` | Click an inline or reply-keyboard button |
 | `read` | Read recent messages from the conversation |
 | `wait` | Wait for a delayed bot response |
-| `reset` | Reset conversation state (use when stuck) |
+| `reset` | Reset conversation state |
 | `discover` | List all auto-discovered commands and buttons |
 
-### Dynamic Tools (auto-generated from discovery)
+### Dynamic (auto-generated from bot discovery)
 
-After discovery, tgbot2mcp creates dedicated tools:
-
-- **`cmd_{name}`** — one tool per slash command (`cmd_start`, `cmd_help`, `cmd_settings`, etc.)
+- **`cmd_{name}`** — one tool per slash command (`cmd_start`, `cmd_help`, etc.)
 - **`btn_{label}`** — one tool per button found in bot responses
 
 ---
 
-## Architecture
+## MCP Client Configuration
 
-Built by composing proven open-source foundations:
-
-| Component | Source | Role |
-|-----------|--------|------|
-| **Discovery engine** | [BotFuzzer](https://github.com/seniorsolt/BotFuzzer) | DFS bot crawling, state graph construction |
-| **Interaction layer** | [TgTestKit](https://github.com/elebur/tgtestkit) | Telethon messages, buttons, edited messages, timeouts |
-| **MCP server** | [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) | Standard MCP protocol implementation |
-| **Transport** | Telethon (MTProto) | User-session Telegram access |
-
----
-
-## Configuration
-
-Config file: `~/.tgbot2mcp/config.yaml`
-
-```yaml
-api_id: 12345
-api_hash: "your_api_hash"
-session_dir: ~/.tgbot2mcp/sessions
-default_timeout: 20.0
-wait_consecutive: 2.0
-global_action_delay: 0.8
-log_level: INFO
-discovery_max_depth: 5
-discovery_max_repeats: 1
-```
-
-Environment variables (override config file):
-- `TG_API_ID` / `TELEGRAM_API_ID`
-- `TG_API_HASH` / `TELEGRAM_API_HASH`
-
----
-
-## Claude Desktop Integration
-
-Add to your `claude_desktop_config.json`:
+### Claude Desktop
 
 ```json
 {
   "mcpServers": {
     "telegram-bot": {
-      "command": "tgbot2mcp",
-      "args": ["serve", "@YourBotName"],
+      "command": "uvx",
+      "args": ["tgbot2mcp", "serve", "@YourBot"],
       "env": {
         "TG_API_ID": "YOUR_API_ID",
         "TG_API_HASH": "YOUR_API_HASH"
@@ -178,19 +155,54 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-See [`examples/claude_desktop_config.json`](examples/claude_desktop_config.json) for a complete example.
+> **Tip:** `tgbot2mcp setup` writes this config for you automatically.
+
+### Cursor / VS Code
+
+Same format — saved to `~/.cursor/mcp.json` or `~/.vscode/mcp.json` by `setup`.
 
 ---
 
-## Docker
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `tgbot2mcp setup @Bot` | Full onboarding wizard (credentials + login + MCP config) |
+| `tgbot2mcp login` | Telegram authentication only |
+| `tgbot2mcp serve @Bot` | Start MCP server (stdio or HTTP) |
+| `tgbot2mcp inspect @Bot` | Show discovered bot capabilities |
+| `tgbot2mcp generate @Bot` | Generate standalone MCP server file |
+
+### Serve options
 
 ```bash
-# Interactive login
-docker compose run tgbot2mcp login
+# stdio (default — for Claude Desktop, Cursor)
+tgbot2mcp serve @SomeBot
 
-# Start MCP server
-docker compose run tgbot2mcp serve @SomeBot
+# HTTP transport (for remote/self-hosted)
+tgbot2mcp serve @SomeBot --transport http --port 8080
+
+# Skip discovery (universal tools only, faster startup)
+tgbot2mcp serve @SomeBot --no-discover
 ```
+
+---
+
+## Configuration
+
+Config: `~/.tgbot2mcp/config.yaml`
+
+```yaml
+api_id: 12345
+api_hash: "your_api_hash"
+session_dir: ~/.tgbot2mcp/sessions
+default_timeout: 20.0
+discovery_max_depth: 5
+```
+
+Environment variables (override config):
+- `TG_API_ID` / `TELEGRAM_API_ID`
+- `TG_API_HASH` / `TELEGRAM_API_HASH`
 
 ---
 
@@ -198,38 +210,34 @@ docker compose run tgbot2mcp serve @SomeBot
 
 <details>
 <summary><b>Do I need the bot's API token?</b></summary>
-No. tgbot2mcp uses your Telegram user session (MTProto), not the Bot API. It works with any bot, even ones you don't own.
+No. tgbot2mcp uses your Telegram user session (MTProto). Works with any bot, even ones you don't own.
 </details>
 
 <details>
 <summary><b>Is this safe?</b></summary>
-Session files give full access to your Telegram account. Never share them. They are stored with <code>0600</code> permissions in <code>~/.tgbot2mcp/sessions/</code>.
+Session files (<code>~/.tgbot2mcp/sessions/</code>) give full access to your Telegram account. Never share them. Created with <code>0600</code> permissions.
 </details>
 
 <details>
-<summary><b>Which AI clients are supported?</b></summary>
-Any MCP-compatible client: Claude Desktop, Cursor, Continue, Cline, and others. The server supports both stdio and HTTP transports.
+<summary><b>Which AI clients work?</b></summary>
+Any MCP client: Claude Desktop, Cursor, Continue (VS Code), Cline, and others. Supports stdio and HTTP transports.
 </details>
 
 <details>
-<summary><b>How does discovery work?</b></summary>
-tgbot2mcp sends <code>/start</code> and <code>/help</code>, collects BotFather-registered commands, parses button keyboards, and performs DFS traversal to map the bot's state graph.
-</details>
-
-<details>
-<summary><b>Can I use it with any Telegram bot?</b></summary>
-Yes. Any public Telegram bot that accepts messages from users will work. No special configuration needed on the bot's side.
+<summary><b>Can I use it with any bot?</b></summary>
+Yes. Any public Telegram bot that accepts messages will work.
 </details>
 
 ---
 
-## Development
+## Architecture
 
-```bash
-pip install -e ".[dev]"
-pytest
-tgbot2mcp --log-level DEBUG serve @SomeBot
-```
+| Component | Source | Role |
+|-----------|--------|------|
+| Discovery | [BotFuzzer](https://github.com/seniorsolt/BotFuzzer) | DFS crawling, state graph |
+| Interaction | [TgTestKit](https://github.com/elebur/tgtestkit) | Messages, buttons, edited messages |
+| MCP | [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) | Protocol implementation |
+| Transport | Telethon (MTProto) | User-session Telegram access |
 
 ---
 
@@ -242,48 +250,46 @@ MIT
 <a id="ru"></a>
 ## 🇷🇺 Русский
 
-**tgbot2mcp** — адаптер, который превращает любого Telegram-бота в готовый [MCP-сервер](https://modelcontextprotocol.io/) (Model Context Protocol). Токен бота не нужен — работает через ваш пользовательский аккаунт Telegram.
-
-**Как это работает:**
-
-1. Вы авторизуетесь в Telegram (как в обычном клиенте — по номеру телефона)
-2. Указываете бота, например `@SomeBot`
-3. tgbot2mcp автоматически обнаруживает возможности бота: команды, кнопки, состояния (через DFS-обход)
-4. Всё это становится MCP-инструментами, которые AI-агенты (Claude, ChatGPT, Gemini) могут вызывать
-
-**Быстрый старт:**
+**tgbot2mcp** — превращает любого Telegram-бота в [MCP-сервер](https://modelcontextprotocol.io/) одной командой.  
+Токен бота не нужен — работает через ваш аккаунт.
 
 ```bash
-pip install -e .
-tgbot2mcp login
-tgbot2mcp serve @SomeBot
+uvx tgbot2mcp setup @SomeBot
 ```
 
-**Нужен только Python 3.11+ и API-ключи Telegram** с [my.telegram.org/apps](https://my.telegram.org/apps).
+Мастер настройки сам запросит API-ключи, выполнит авторизацию, проверит бота и настроит MCP-клиент (Claude / Cursor / VS Code).
+
+**Ручной запуск:**
+
+```bash
+uvx tgbot2mcp login
+uvx tgbot2mcp serve @SomeBot
+```
+
+Нужен [uv](https://docs.astral.sh/uv/) и API-ключи с [my.telegram.org/apps](https://my.telegram.org/apps).
 
 ---
 
 <a id="zh"></a>
 ## 🇨🇳 中文
 
-**tgbot2mcp** — 适配器，可将任何 Telegram 机器人转换为即用的 [MCP 服务器](https://modelcontextprotocol.io/)（Model Context Protocol）。无需机器人 Token — 通过您的 Telegram 用户账户运行。
-
-**工作原理：**
-
-1. 使用 Telegram 登录（像普通客户端一样通过手机号验证）
-2. 指定目标机器人，例如 `@SomeBot`
-3. tgbot2mcp 自动发现机器人功能：命令、按钮、状态（通过 DFS 遍历）
-4. 所有功能变成 MCP 工具，AI 代理（Claude、ChatGPT、Gemini）可直接调用
-
-**快速开始：**
+**tgbot2mcp** — 一条命令将任何 Telegram 机器人变为 [MCP 服务器](https://modelcontextprotocol.io/)。  
+无需机器人 Token，通过您的用户账户运行。
 
 ```bash
-pip install -e .
-tgbot2mcp login
-tgbot2mcp serve @SomeBot
+uvx tgbot2mcp setup @SomeBot
 ```
 
-**只需 Python 3.11+ 和 Telegram API 密钥**，从 [my.telegram.org/apps](https://my.telegram.org/apps) 获取。
+设置向导会自动请求 API 密钥、完成登录、验证机器人并配置 MCP 客户端（Claude / Cursor / VS Code）。
+
+**手动运行：**
+
+```bash
+uvx tgbot2mcp login
+uvx tgbot2mcp serve @SomeBot
+```
+
+需要 [uv](https://docs.astral.sh/uv/) 和 [my.telegram.org/apps](https://my.telegram.org/apps) 的 API 密钥。
 
 ---
 

@@ -1,7 +1,7 @@
-"""
-CLI entry point for tgbot2mcp.
+"""CLI entry point for tgbot2mcp.
 
 Commands:
+  tgbot2mcp setup @botname           — One-command onboarding wizard
   tgbot2mcp login                    — Authenticate with Telegram
   tgbot2mcp serve @botname           — Start MCP server for a bot
   tgbot2mcp inspect @botname         — Discover and display bot capabilities
@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -38,6 +39,113 @@ def cli(ctx: click.Context, config_path: str | None, log_level: str | None) -> N
         config.log_level = log_level
     setup_logging(config.log_level)
     ctx.obj["config"] = config
+
+
+@cli.command()
+@click.argument("bot_username")
+@click.pass_context
+def setup(ctx: click.Context, bot_username: str) -> None:
+    """One-command setup: credentials → login → verify bot → configure MCP client.
+
+    BOT_USERNAME is the bot's username (e.g. @SomeBot or SomeBot).
+
+    This interactive wizard handles the entire onboarding:
+    1. Asks for Telegram API credentials (if not already configured)
+    2. Performs Telegram login
+    3. Verifies the target bot is accessible
+    4. Auto-configures your MCP client (Claude Desktop, Cursor, etc.)
+    """
+    config: AppConfig = ctx.obj["config"]
+    ensure_dirs(config)
+    bot_username = _normalize_bot_username(bot_username)
+
+    # Step 1: Credentials
+    if not config.api_id or not config.api_hash:
+        click.echo("\n📋 Telegram API credentials required.")
+        click.echo("   Get them from: https://my.telegram.org/apps\n")
+        api_id_str = click.prompt("  API ID", type=str)
+        api_hash_str = click.prompt("  API Hash", type=str)
+        config.api_id = int(api_id_str)
+        config.api_hash = api_hash_str.strip()
+        save_config(config)
+        click.echo("  ✓ Credentials saved to ~/.tgbot2mcp/config.yaml\n")
+    else:
+        click.echo("\n✓ Telegram credentials found.\n")
+
+    from tgbot2mcp.telegram.client import TelegramSessionManager
+    from tgbot2mcp.telegram.adapter import TelegramAdapter
+
+    async def _setup() -> None:
+        import json as _json
+
+        # Step 2: Login
+        session = TelegramSessionManager(config)
+        try:
+            user = await session.login()
+            click.echo(f"  ✓ Logged in as {user.first_name} (@{user.username})\n")
+        except Exception as e:
+            click.echo(f"  ✗ Login failed: {e}")
+            sys.exit(1)
+
+        # Step 3: Verify bot is accessible
+        click.echo(f"  Checking {bot_username}...")
+        adapter = TelegramAdapter(session.client, config)
+        try:
+            entity = await session.client.get_entity(bot_username)
+            click.echo(f"  ✓ Bot found: {getattr(entity, 'first_name', bot_username)}\n")
+        except Exception as e:
+            click.echo(f"  ✗ Cannot reach {bot_username}: {e}")
+            await session.disconnect()
+            sys.exit(1)
+
+        await session.disconnect()
+
+        # Step 4: Configure MCP client
+        click.echo("  Which MCP client do you use?")
+        click.echo("    1) Claude Desktop")
+        click.echo("    2) Cursor")
+        click.echo("    3) VS Code (Continue)")
+        click.echo("    4) Other / Skip")
+        choice = click.prompt("  Choice", type=int, default=1)
+
+        mcp_config = {
+            "command": "uvx",
+            "args": ["tgbot2mcp", "serve", bot_username],
+            "env": {
+                "TG_API_ID": str(config.api_id),
+                "TG_API_HASH": config.api_hash,
+            },
+        }
+
+        config_written = False
+        bot_key = f"tg-{bot_username.lstrip('@').lower()}"
+
+        if choice == 1:
+            config_written = _write_mcp_client_config(
+                _get_claude_config_path(), bot_key, mcp_config
+            )
+        elif choice == 2:
+            config_written = _write_mcp_client_config(
+                _get_cursor_config_path(), bot_key, mcp_config
+            )
+        elif choice == 3:
+            config_written = _write_mcp_client_config(
+                _get_vscode_config_path(), bot_key, mcp_config
+            )
+
+        if config_written:
+            click.echo(f"  ✓ MCP config written for {bot_username}")
+        elif choice != 4:
+            click.echo("  ⚠ Could not auto-detect config path. Add manually:")
+            click.echo(f"    {_json.dumps(mcp_config, indent=2)}")
+        else:
+            click.echo("\n  Manual MCP config:")
+            click.echo(f"    {_json.dumps(mcp_config, indent=2)}")
+
+        click.echo(f"\n✅ Telegram bot {bot_username} is ready as an MCP server.")
+        click.echo(f"   Run manually: uvx tgbot2mcp serve {bot_username}")
+
+    asyncio.run(_setup())
 
 
 @cli.command()
@@ -336,3 +444,51 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     cli()
+
+
+# --- Setup helper functions ---
+
+
+def _get_claude_config_path() -> Path:
+    """Get Claude Desktop MCP config path."""
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
+    elif sys.platform == "win32":
+        return Path(os.environ.get("APPDATA", "")) / "Claude" / "claude_desktop_config.json"
+    else:
+        return Path.home() / ".config" / "claude" / "claude_desktop_config.json"
+
+
+def _get_cursor_config_path() -> Path:
+    """Get Cursor MCP config path."""
+    return Path.home() / ".cursor" / "mcp.json"
+
+
+def _get_vscode_config_path() -> Path:
+    """Get VS Code (Continue) MCP config path."""
+    return Path.home() / ".vscode" / "mcp.json"
+
+
+def _write_mcp_client_config(config_path: Path, server_key: str, server_config: dict) -> bool:
+    """Write or merge MCP server config into a client config file."""
+    try:
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+
+        existing: dict = {}
+        if config_path.exists():
+            import json as _json
+            existing = _json.loads(config_path.read_text(encoding="utf-8"))
+
+        if "mcpServers" not in existing:
+            existing["mcpServers"] = {}
+
+        existing["mcpServers"][server_key] = server_config
+
+        import json as _json
+        config_path.write_text(
+            _json.dumps(existing, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        return True
+    except Exception:
+        return False
