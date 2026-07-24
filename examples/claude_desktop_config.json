@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "telegram-bot": {
+      "command": "tgbot2mcp",
+      "args": ["serve", "@YourBotName"],
+      "env": {
+        "TG_API_ID": "YOUR_API_ID",
+        "TG_API_HASH": "YOUR_API_HASH"
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Sessions (NEVER commit Telegram session files)
+*.session
+*.session-journal
+.session/
+
+# Config with secrets
+config.yaml
+.env
+
+# Discovery outputs
+*.drawio
+tree_*.json
+tree_*.xml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vendor (cloned repos for reference, not part of the build)
+vendor/

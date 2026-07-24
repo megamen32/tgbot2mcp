@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tgbot2mcp"
+version = "0.1.0"
+description = "Universal Telegram Bot to MCP adapter — wrap any TG bot into a ready-to-use MCP server via MTProto user sessions."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{ name = "tgbot2mcp contributors" }]
+keywords = ["telegram", "mcp", "model-context-protocol", "telethon", "mtproto"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: Chat",
+]
+dependencies = [
+    "telethon>=1.36.0",
+    "cryptg>=0.4.0",
+    "mcp>=1.0.0",
+    "pydantic>=2.0.0",
+    "click>=8.1.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.12.0",
+]
+
+[project.scripts]
+tgbot2mcp = "tgbot2mcp.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tgbot2mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
