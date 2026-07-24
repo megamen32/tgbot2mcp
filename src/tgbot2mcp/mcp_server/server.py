@@ -3,7 +3,6 @@ MCP server with universal tools for interacting with Telegram bots.
 
 Exposes these tools via the Model Context Protocol:
 - telegram_bot_send
-- telegram_bot_command
 - telegram_bot_click_button
 - telegram_bot_get_messages
 - telegram_bot_wait_for_response
@@ -71,26 +70,6 @@ def create_mcp_server(
             JSON string with the bot's response messages and buttons.
         """
         result = await adapter.send_message(bot_username, message, files=files, timeout=timeout)
-        return _format_result(result)
-
-    @mcp.tool()
-    async def telegram_bot_command(
-        command: str,
-        arguments: str | None = None,
-        timeout: float | None = None,
-    ) -> str:
-        """
-        Send a slash command to the bot and get its response.
-
-        Args:
-            command: The command to send (e.g. "start", "help", "settings").
-            arguments: Optional arguments to append after the command.
-            timeout: Maximum seconds to wait for the bot's response.
-
-        Returns:
-            JSON string with the bot's response messages and buttons.
-        """
-        result = await adapter.send_command(bot_username, command, arguments=arguments, timeout=timeout)
         return _format_result(result)
 
     @mcp.tool()
