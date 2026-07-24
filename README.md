@@ -108,19 +108,19 @@ Available for any bot, no discovery needed:
 
 | Tool | What it does |
 |------|-------------|
-| `telegram_bot_send` | Send text (or `/command`) and get the response |
-| `telegram_bot_click_button` | Click an inline or reply-keyboard button |
-| `telegram_bot_get_messages` | Read recent messages from the conversation |
-| `telegram_bot_wait_for_response` | Wait for a delayed bot response |
-| `telegram_bot_reset_session` | Reset conversation state (use when stuck) |
-| `telegram_bot_get_discovered_actions` | List all auto-discovered commands and buttons |
+| `send` | Send text (or `/command`) and get the response |
+| `click` | Click an inline or reply-keyboard button |
+| `read` | Read recent messages from the conversation |
+| `wait` | Wait for a delayed bot response |
+| `reset` | Reset conversation state (use when stuck) |
+| `discover` | List all auto-discovered commands and buttons |
 
 ### Dynamic Tools (auto-generated from discovery)
 
 After discovery, tgbot2mcp creates dedicated tools:
 
-- **`telegram_bot_cmd_{name}`** — one tool per slash command (`/start`, `/help`, `/settings`, etc.)
-- **`telegram_bot_btn_{label}`** — one tool per button found in bot responses
+- **`cmd_{name}`** — one tool per slash command (`cmd_start`, `cmd_help`, `cmd_settings`, etc.)
+- **`btn_{label}`** — one tool per button found in bot responses
 
 ---
 

@@ -2,12 +2,12 @@
 MCP server with universal tools for interacting with Telegram bots.
 
 Exposes these tools via the Model Context Protocol:
-- telegram_bot_send
-- telegram_bot_click_button
-- telegram_bot_get_messages
-- telegram_bot_wait_for_response
-- telegram_bot_reset_session
-- telegram_bot_get_discovered_actions
+- send
+- click
+- read
+- wait
+- reset
+- discover
 """
 
 from __future__ import annotations
@@ -45,15 +45,16 @@ def create_mcp_server(
         name=f"tgbot2mcp-{bot_username.lstrip('@')}",
         instructions=(
             f"MCP server for interacting with the Telegram bot {bot_username}. "
-            "Use the universal tools to send messages, commands, and click buttons. "
-            "Use get_discovered_actions to see what the bot can do."
+            "Use send to message the bot, click to press buttons, read to get messages, "
+            "wait for delayed responses, reset to restart the conversation, "
+            "and discover to see what the bot can do."
         ),
     )
 
     # --- Universal Tools ---
 
-    @mcp.tool()
-    async def telegram_bot_send(
+    @mcp.tool(name="send")
+    async def send(
         message: str,
         files: list[str] | None = None,
         timeout: float | None = None,
@@ -72,8 +73,8 @@ def create_mcp_server(
         result = await adapter.send_message(bot_username, message, files=files, timeout=timeout)
         return _format_result(result)
 
-    @mcp.tool()
-    async def telegram_bot_click_button(
+    @mcp.tool(name="click")
+    async def click(
         message_id: int,
         button_text: str | None = None,
         button_index: int | None = None,
@@ -102,8 +103,8 @@ def create_mcp_server(
         )
         return _format_result(result)
 
-    @mcp.tool()
-    async def telegram_bot_get_messages(
+    @mcp.tool(name="read")
+    async def read(
         limit: int = 10,
     ) -> str:
         """
@@ -118,8 +119,8 @@ def create_mcp_server(
         messages = await adapter.get_messages(bot_username, limit=limit)
         return json.dumps(messages, ensure_ascii=False, indent=2)
 
-    @mcp.tool()
-    async def telegram_bot_wait_for_response(
+    @mcp.tool(name="wait")
+    async def wait(
         timeout: float = 30.0,
     ) -> str:
         """
@@ -135,8 +136,8 @@ def create_mcp_server(
         result = await adapter.send_message(bot_username, "", timeout=timeout)
         return _format_result(result)
 
-    @mcp.tool()
-    async def telegram_bot_reset_session() -> str:
+    @mcp.tool(name="reset")
+    async def reset() -> str:
         """
         Reset the conversation state with the bot.
 
@@ -149,8 +150,8 @@ def create_mcp_server(
         adapter.reset_conversation(bot_username)
         return json.dumps({"status": "ok", "message": f"Conversation with {bot_username} has been reset."})
 
-    @mcp.tool()
-    async def telegram_bot_get_discovered_actions() -> str:
+    @mcp.tool(name="discover")
+    async def discover() -> str:
         """
         Get all discovered actions (commands and buttons) for this bot.
 
@@ -198,12 +199,12 @@ def _register_dynamic_tools(
                     bot_username, command_name, arguments=arguments, timeout=timeout
                 )
                 return _format_result(result)
-            tool_func.__name__ = f"telegram_bot_cmd_{command_name}"
+            tool_func.__name__ = f"cmd_{command_name}"
             tool_func.__doc__ = f"{description}\n\nArgs:\n    arguments: Optional arguments for the command.\n    timeout: Max seconds to wait for response."
             return tool_func
 
         tool_func = make_command_tool(cmd_name, cmd_desc)
-        mcp.tool(name=f"telegram_bot_cmd_{cmd_name}", description=cmd_desc)(tool_func)
+        mcp.tool(name=f"cmd_{cmd_name}", description=cmd_desc)(tool_func)
 
     # Create dedicated tools for frequently seen buttons
     seen_button_texts: set[str] = set()
@@ -226,13 +227,13 @@ def _register_dynamic_tools(
                     timeout=timeout,
                 )
                 return _format_result(result)
-            tool_func.__name__ = f"telegram_bot_btn_{safe_name}"
+            tool_func.__name__ = f"btn_{safe_name}"
             tool_func.__doc__ = f"Click the '{button_text}' button.\n\nArgs:\n    message_id: The message ID containing the button.\n    timeout: Max seconds to wait for response."
             return tool_func
 
         tool_func = make_button_tool(btn.text)
         mcp.tool(
-            name=f"telegram_bot_btn_{safe_name}",
+            name=f"btn_{safe_name}",
             description=f"Click the '{btn.text}' button on the bot.",
         )(tool_func)
 
