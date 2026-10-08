@@ -60,3 +60,14 @@ jobs:
             exit 1
           fi
           uv publish --trusted-publishing never --check-url https://pypi.org/simple/
+      - name: Verify the published package in a fresh consumer environment
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          for attempt in 1 2 3 4 5 6; do
+            if uv run --no-project --with "tgbot2mcp==$VERSION" python -c "from tgbot2mcp.mcp_server.server import create_mcp_server; from importlib.metadata import version; print('Published consumer import:', version('tgbot2mcp'), 'MCP', version('mcp'))"; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo '::error::Published package failed its fresh PyPI consumer import.'
+          exit 1
