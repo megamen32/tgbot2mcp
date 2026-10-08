@@ -20,3 +20,10 @@ PyPI shows the new version and its uploaded distribution hashes.
 
 API token help: https://pypi.org/help/#apitoken
 uv publishing: https://docs.astral.sh/uv/guides/publish/
+
+After publishing, a separate hosted consumer job installs this exact version
+from public PyPI and imports its MCP server. It refreshes the package index
+explicitly: pre-upload `--check-url` reads must not hide a newly published
+version behind cached index metadata. To repeat this read-only acceptance for
+an already published version, dispatch the workflow from main with
+`verify_published=true`. It never changes tags or reuploads distributions.
